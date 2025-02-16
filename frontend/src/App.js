@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import Dashboard from './pages/Dashboard';
 import EABuilder from './pages/EABuilder';
 import Backtesting from './pages/Backtesting';
+import './App.css';
 
 function App() {
   return (
