@@ -26,9 +26,14 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+.idea/
 
 # Other
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+
+# Build outputs
+build/
+dist/
