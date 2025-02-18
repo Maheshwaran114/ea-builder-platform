@@ -657,6 +657,140 @@ app.post('/api/subscriptions/upgrade', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/eamodels/{id}/backtest-update:
+ *   post:
+ *     summary: Update backtest results for an EA model
+ *     tags: [EA Models]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The EA model ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - profit
+ *               - drawdown
+ *               - winRatio
+ *             properties:
+ *               profit:
+ *                 type: number
+ *               drawdown:
+ *                 type: number
+ *               winRatio:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: EA model backtest results updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *       400:
+ *         description: Missing required performance metrics
+ *       404:
+ *         description: EA model not found
+ *       500:
+ *         description: Updating backtest results failed
+ */
+app.post('/api/eamodels/:id/backtest-update', async (req, res) => {
+  const { id } = req.params;
+  const { profit, drawdown, winRatio } = req.body;
+  if (profit === undefined || drawdown === undefined || winRatio === undefined) {
+    return res.status(400).json({ error: 'Missing required performance metrics: profit, drawdown, winRatio' });
+  }
+  try {
+    const result = await pool.query(
+      `UPDATE ea_models 
+       SET backtest_results = $1, updated_at = CURRENT_TIMESTAMP 
+       WHERE id = $2 RETURNING *`,
+      [ { profit, drawdown, winRatio }, id ]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'EA model not found' });
+    }
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Update backtest error:', err);
+    res.status(500).json({ error: 'Updating backtest results failed', details: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/eamodels/rank:
+ *   post:
+ *     summary: Rank EA models and flag the top 20 models
+ *     tags: [EA Models]
+ *     responses:
+ *       200:
+ *         description: EA models ranked successfully, top 20 flagged
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                   user_id:
+ *                     type: integer
+ *                   name:
+ *                     type: string
+ *                   backtest_results:
+ *                     type: object
+ *                   is_top:
+ *                     type: boolean
+ *       500:
+ *         description: Ranking EA models failed
+ */
+app.post('/api/eamodels/rank', async (req, res) => {
+  try {
+    // Fetch all EA models with backtest_results available
+    const allModelsResult = await pool.query('SELECT id, backtest_results FROM ea_models WHERE backtest_results IS NOT NULL');
+    const models = allModelsResult.rows;
+
+    // Compute a score for each model; for simplicity: score = profit - drawdown
+    const scoredModels = models.map(model => {
+      const bt = model.backtest_results || {};
+      const profit = bt.profit || 0;
+      const drawdown = bt.drawdown || 0;
+      const score = profit - drawdown;
+      return { id: model.id, score };
+    });
+
+    // Sort models by score descending and select top 20 IDs
+    scoredModels.sort((a, b) => b.score - a.score);
+    const top20Ids = scoredModels.slice(0, 20).map(model => model.id);
+
+    // Reset is_top flag for all EA models
+    await pool.query('UPDATE ea_models SET is_top = false');
+
+    // Set is_top to true for the top 20 models
+    if (top20Ids.length > 0) {
+      await pool.query('UPDATE ea_models SET is_top = true WHERE id = ANY($1::int[])', [top20Ids]);
+    }
+
+    // Retrieve and return the top 20 EA models
+    const topModelsResult = await pool.query('SELECT * FROM ea_models WHERE is_top = true ORDER BY created_at DESC LIMIT 20');
+    res.json(topModelsResult.rows);
+  } catch (err) {
+    console.error('Ranking error:', err);
+    res.status(500).json({ error: 'Ranking EA models failed', details: err.message });
+  }
+});
+
+
+
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });
