@@ -1,3 +1,4 @@
+// backend/server.js
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -83,17 +84,6 @@ app.get('/', (req, res) => {
  *     responses:
  *       201:
  *         description: User created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: integer
- *                 username:
- *                   type: string
- *                 password:
- *                   type: string
  *       400:
  *         description: Invalid input
  *       500:
@@ -101,15 +91,13 @@ app.get('/', (req, res) => {
  */
 app.post('/api/signup', async (req, res) => {
   const { username, password } = req.body;
-  // Basic validations
   if (!username || typeof username !== 'string' || username.trim().length < 3) {
-    return res.status(400).json({ error: 'Invalid username. Must be a string with at least 3 characters.' });
+    return res.status(400).json({ error: 'Invalid username. Must be at least 3 characters.' });
   }
   if (!password || typeof password !== 'string' || password.length < 6) {
     return res.status(400).json({ error: 'Invalid password. Must be at least 6 characters long.' });
   }
   try {
-    // Hash the password before storing
     const hashedPassword = await bcrypt.hash(password, saltRounds);
     const result = await pool.query(
       'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *',
@@ -145,13 +133,6 @@ app.post('/api/signup', async (req, res) => {
  *     responses:
  *       200:
  *         description: Login successful, returns a JWT token
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 token:
- *                   type: string
  *       400:
  *         description: Invalid input
  *       401:
@@ -214,25 +195,6 @@ app.post('/api/login', async (req, res) => {
  *     responses:
  *       201:
  *         description: EA model created successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: integer
- *                 user_id:
- *                   type: integer
- *                 name:
- *                   type: string
- *                 configuration:
- *                   type: object
- *                 created_at:
- *                   type: string
- *                   format: date-time
- *                 updated_at:
- *                   type: string
- *                   format: date-time
  *       400:
  *         description: Invalid input
  *       500:
@@ -277,27 +239,6 @@ app.post('/api/eamodels', async (req, res) => {
  *     responses:
  *       200:
  *         description: A list of EA models
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: integer
- *                   user_id:
- *                     type: integer
- *                   name:
- *                     type: string
- *                   configuration:
- *                     type: object
- *                   created_at:
- *                     type: string
- *                     format: date-time
- *                   updated_at:
- *                     type: string
- *                     format: date-time
  *       400:
  *         description: Invalid userId parameter
  *       500:
@@ -350,10 +291,6 @@ app.get('/api/eamodels/:userId', async (req, res) => {
  *     responses:
  *       200:
  *         description: EA model updated successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
  *       400:
  *         description: Missing required fields
  *       404:
@@ -422,7 +359,6 @@ app.delete('/api/eamodels/:id', async (req, res) => {
     res.status(500).json({ error: 'EA model deletion failed', details: err.message });
   }
 });
-
 const { runBacktest } = require('./backtesting');
 
 /**
@@ -442,6 +378,7 @@ const { runBacktest } = require('./backtesting');
  *             properties:
  *               configuration:
  *                 type: object
+ *                 description: Contains the EA model's indicator and parameter configurations.
  *     responses:
  *       200:
  *         description: Backtest completed successfully
@@ -480,6 +417,245 @@ app.post('/api/backtest', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/eacode:
+ *   post:
+ *     summary: Generate EA code based on provided configuration
+ *     tags: [EA Code Generation]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - configuration
+ *             properties:
+ *               configuration:
+ *                 type: object
+ *                 description: Contains indicator selections, conditions, and parameters for EA generation.
+ *     responses:
+ *       200:
+ *         description: Generated EA code successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: string
+ *       400:
+ *         description: Invalid or missing configuration
+ *       500:
+ *         description: EA code generation failed
+ */
+app.post('/api/eacode', async (req, res) => {
+  const { configuration } = req.body;
+  if (!configuration || typeof configuration !== 'object') {
+    return res.status(400).json({ error: 'Invalid or missing configuration' });
+  }
+  try {
+    // Simulated EA code generation based on configuration
+    const generatedCode = `
+      // EA Generated Code
+      // Configuration: ${JSON.stringify(configuration)}
+      
+      void OnInit() {
+        // Initialize indicators and parameters...
+      }
+      
+      void OnTick() {
+        // Conditional logic for trading signals...
+        if (/* condition based on configuration */) {
+          // Execute trade logic
+        }
+      }
+    `;
+    res.json({ code: generatedCode });
+  } catch (err) {
+    console.error('EA code generation error:', err);
+    res.status(500).json({ error: 'EA code generation failed', details: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/admin/top-eamodels:
+ *   get:
+ *     summary: Retrieve the top 20 EA models (admin access)
+ *     tags: [Admin]
+ *     responses:
+ *       200:
+ *         description: A list of top 20 EA models
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                   user_id:
+ *                     type: integer
+ *                   name:
+ *                     type: string
+ *                   configuration:
+ *                     type: object
+ *                   created_at:
+ *                     type: string
+ *                     format: date-time
+ *                   updated_at:
+ *                     type: string
+ *                     format: date-time
+ *       500:
+ *         description: Failed to retrieve top EA models
+ */
+app.get('/api/admin/top-eamodels', async (req, res) => {
+  try {
+    // For demonstration, we assume top models are flagged in the ea_models table with is_top = true.
+    const result = await pool.query(
+      'SELECT * FROM ea_models WHERE is_top = true ORDER BY created_at DESC LIMIT 20'
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Fetching top EA models error:', err);
+    res.status(500).json({ error: 'Failed to retrieve top EA models', details: err.message });
+  }
+});
+
+// Subscription Management Endpoints
+
+/**
+ * @swagger
+ * /api/subscriptions/free:
+ *   post:
+ *     summary: Activate free tier subscription for a user
+ *     tags: [Subscriptions]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *             properties:
+ *               userId:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Free tier subscription activated
+ *       400:
+ *         description: Invalid input
+ *       500:
+ *         description: Free tier subscription activation failed
+ */
+app.post('/api/subscriptions/free', async (req, res) => {
+  const { userId } = req.body;
+  if (!userId || isNaN(userId)) {
+    return res.status(400).json({ error: 'Invalid or missing userId' });
+  }
+  try {
+    const result = await pool.query(
+      `INSERT INTO subscriptions (user_id, subscription_type, subscription_start, ea_model_count)
+       VALUES ($1, 'free', CURRENT_TIMESTAMP, 0)
+       RETURNING *`,
+      [userId]
+    );
+    res.json({ message: 'Free tier subscription activated', subscription: result.rows[0] });
+  } catch (err) {
+    console.error('Free tier subscription error:', err);
+    res.status(500).json({ error: 'Free tier subscription activation failed', details: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/subscriptions/{userId}:
+ *   get:
+ *     summary: Check a user's subscription status
+ *     tags: [Subscriptions]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The user's ID
+ *     responses:
+ *       200:
+ *         description: Subscription status retrieved
+ *       400:
+ *         description: Invalid userId parameter
+ *       500:
+ *         description: Failed to retrieve subscription status
+ */
+app.get('/api/subscriptions/:userId', async (req, res) => {
+  const { userId } = req.params;
+  if (!userId || isNaN(userId)) {
+    return res.status(400).json({ error: 'Invalid userId parameter' });
+  }
+  try {
+    const result = await pool.query(
+      'SELECT subscription_type, subscription_start, ea_model_count FROM subscriptions WHERE user_id = $1',
+      [userId]
+    );
+    res.json(result.rows[0] || { message: 'No subscription found for this user' });
+  } catch (err) {
+    console.error('Subscription retrieval error:', err);
+    res.status(500).json({ error: 'Failed to retrieve subscription status', details: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/subscriptions/upgrade:
+ *   post:
+ *     summary: Upgrade a user to premium subscription
+ *     tags: [Subscriptions]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *             properties:
+ *               userId:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: User upgraded to premium successfully
+ *       400:
+ *         description: Invalid input
+ *       404:
+ *         description: Subscription not found for user
+ *       500:
+ *         description: Premium upgrade failed
+ */
+app.post('/api/subscriptions/upgrade', async (req, res) => {
+  const { userId } = req.body;
+  if (!userId || isNaN(userId)) {
+    return res.status(400).json({ error: 'Invalid or missing userId' });
+  }
+  try {
+    const result = await pool.query(
+      `UPDATE subscriptions SET subscription_type = 'premium', ea_model_count = 0, subscription_start = CURRENT_TIMESTAMP
+       WHERE user_id = $1 RETURNING *`,
+      [userId]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Subscription not found for user' });
+    }
+    res.json({ message: 'User upgraded to premium successfully', subscription: result.rows[0] });
+  } catch (err) {
+    console.error('Premium upgrade error:', err);
+    res.status(500).json({ error: 'Premium upgrade failed', details: err.message });
+  }
+});
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
