@@ -1,30 +1,35 @@
+// frontend/src/pages/EABuilder.js
 import React, { useState } from 'react';
 import { DndProvider } from 'react-dnd';
 import { HTML5Backend } from 'react-dnd-html5-backend';
+import CodeEditor from '../components/CodeEditor';
 import Sidebar from '../components/Sidebar';
 import PropertiesPanel from '../components/PropertiesPanel';
 import DropArea from '../components/DropArea';
-import CodePreview from '../components/CodePreview';
 import OnboardingTour from '../components/OnboardingTour';
 
-function EABuilder() {
+const EABuilder = () => {
   const [blocks, setBlocks] = useState([]);
+  const [code, setCode] = useState('// EA generated code will appear here.');
 
   const handleDrop = (item) => {
     setBlocks([...blocks, item.type]);
+    // Simulate code generation update when a block is dropped.
+    setCode(prevCode => prevCode + `\n// Added block: ${item.type}`);
   };
 
-  const generatedCode = `// Generated MQL Code:\n${blocks
-    .map((b, i) => `// Block ${i + 1}: ${b}`)
-    .join('\n')}`;
+  const handleCodeChange = (newCode) => {
+    setCode(newCode);
+  };
 
   return (
     <div className="ea-builder">
       <OnboardingTour />
-      <div className="layout">
-        <DndProvider backend={HTML5Backend}>
+      {/* Wrap the part that uses drag-and-drop in a DndProvider */}
+      <DndProvider backend={HTML5Backend}>
+        <div style={{ display: 'flex' }}>
           <Sidebar />
-          <main className="main-canvas">
+          <main style={{ flex: 1, padding: '20px' }}>
             <h2>EA Builder Canvas</h2>
             <DropArea onDrop={handleDrop} />
             <div>
@@ -35,13 +40,15 @@ function EABuilder() {
                 ))}
               </ul>
             </div>
-            <CodePreview code={generatedCode} />
+            {/* Code Editor Integration */}
+            <h3>EA Code Editor</h3>
+            <CodeEditor code={code} onChange={handleCodeChange} />
           </main>
-        </DndProvider>
-        <PropertiesPanel />
-      </div>
+          <PropertiesPanel />
+        </div>
+      </DndProvider>
     </div>
   );
-}
+};
 
 export default EABuilder;

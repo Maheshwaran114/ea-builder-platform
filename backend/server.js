@@ -378,7 +378,21 @@ const { runBacktest } = require('./backtesting');
  *             properties:
  *               configuration:
  *                 type: object
- *                 description: Contains the EA model's indicator and parameter configurations.
+ *                 description: Contains indicator, parameter, spread, slippage, and commission.
+ *                 properties:
+ *                   indicator:
+ *                     type: string
+ *                   parameter:
+ *                     type: number
+ *                   spread:
+ *                     type: number
+ *                     default: 0.5
+ *                   slippage:
+ *                     type: number
+ *                     default: 0.2
+ *                   commission:
+ *                     type: number
+ *                     default: 0.1
  *     responses:
  *       200:
  *         description: Backtest completed successfully
@@ -392,6 +406,8 @@ const { runBacktest } = require('./backtesting');
  *                 drawdown:
  *                   type: number
  *                 winRatio:
+ *                   type: number
+ *                 sharpeRatio:
  *                   type: number
  *                 backtestDate:
  *                   type: string
