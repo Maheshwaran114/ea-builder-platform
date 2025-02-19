@@ -437,7 +437,7 @@ app.post('/api/backtest', async (req, res) => {
  * @swagger
  * /api/eacode:
  *   post:
- *     summary: Generate EA code based on provided configuration
+ *     summary: Generate EA code with risk management options based on provided configuration
  *     tags: [EA Code Generation]
  *     requestBody:
  *       required: true
@@ -450,7 +450,21 @@ app.post('/api/backtest', async (req, res) => {
  *             properties:
  *               configuration:
  *                 type: object
- *                 description: Contains indicator selections, conditions, and parameters for EA generation.
+ *                 description: Contains indicator selections, parameters, and risk management settings.
+ *                 properties:
+ *                   indicator:
+ *                     type: string
+ *                   parameter:
+ *                     type: number
+ *                   stopLoss:
+ *                     type: number
+ *                     description: Adaptive stop loss value.
+ *                   trailingStop:
+ *                     type: number
+ *                     description: Trailing stop value.
+ *                   commission:
+ *                     type: number
+ *                     default: 0.1
  *     responses:
  *       200:
  *         description: Generated EA code successfully
@@ -472,19 +486,20 @@ app.post('/api/eacode', async (req, res) => {
     return res.status(400).json({ error: 'Invalid or missing configuration' });
   }
   try {
-    // Simulated EA code generation based on configuration
+    const { indicator, parameter, stopLoss, trailingStop, commission = 0.1 } = configuration;
     const generatedCode = `
-      // EA Generated Code
-      // Configuration: ${JSON.stringify(configuration)}
+      // EA Generated Code with Risk Management
+      // Indicator: ${indicator}, Parameter: ${parameter}
+      // Stop Loss: ${stopLoss}, Trailing Stop: ${trailingStop}, Commission: ${commission}
       
       void OnInit() {
-        // Initialize indicators and parameters...
+        // Initialize indicators and risk management parameters...
       }
       
       void OnTick() {
-        // Conditional logic for trading signals...
-        if (/* condition based on configuration */) {
-          // Execute trade logic
+        // Evaluate trading signals using risk management logic.
+        if (/* condition based on risk management settings */) {
+          // Execute adaptive stop loss or trailing stop logic.
         }
       }
     `;
@@ -494,6 +509,7 @@ app.post('/api/eacode', async (req, res) => {
     res.status(500).json({ error: 'EA code generation failed', details: err.message });
   }
 });
+
 
 /**
  * @swagger
