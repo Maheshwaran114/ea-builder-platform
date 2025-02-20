@@ -3,7 +3,7 @@ import React from 'react';
 
 const RiskManagementSettings = ({ settings, onChange }) => {
   return (
-    <div style={{ marginTop: '20px' }}>
+    <div style={{ marginTop: '20px', border: '2px solid red', padding: '10px' }}>
       <h4>Risk Management Settings</h4>
       <div>
         <label>Stop Loss: </label>

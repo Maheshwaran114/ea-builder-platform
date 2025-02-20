@@ -488,18 +488,18 @@ app.post('/api/eacode', async (req, res) => {
   try {
     const { indicator, parameter, stopLoss, trailingStop, commission = 0.1 } = configuration;
     const generatedCode = `
-      // EA Generated Code with Risk Management
+      // EA Generated Code with Advanced Risk Management
       // Indicator: ${indicator}, Parameter: ${parameter}
-      // Stop Loss: ${stopLoss}, Trailing Stop: ${trailingStop}, Commission: ${commission}
+      // Risk Settings -> Stop Loss: ${stopLoss}, Trailing Stop: ${trailingStop}, Commission: ${commission}
       
       void OnInit() {
-        // Initialize indicators and risk management parameters...
+        // Initialize indicators, risk management parameters, and other settings...
       }
       
       void OnTick() {
-        // Evaluate trading signals using risk management logic.
-        if (/* condition based on risk management settings */) {
-          // Execute adaptive stop loss or trailing stop logic.
+        // Evaluate trading conditions and apply risk management logic.
+        if (/* condition based on risk parameters */) {
+          // Implement adaptive stop loss or trailing stop logic.
         }
       }
     `;
