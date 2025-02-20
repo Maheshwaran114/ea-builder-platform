@@ -7,15 +7,16 @@ import Sidebar from '../components/Sidebar';
 import PropertiesPanel from '../components/PropertiesPanel';
 import DropArea from '../components/DropArea';
 import OnboardingTour from '../components/OnboardingTour';
+import RiskManagementSettings from '../components/RiskManagementSettings';
 
 const EABuilder = () => {
   const [blocks, setBlocks] = useState([]);
   const [code, setCode] = useState('// EA generated code will appear here.');
+  const [riskSettings, setRiskSettings] = useState({ stopLoss: 50, trailingStop: 20 });
 
   const handleDrop = (item) => {
     setBlocks([...blocks, item.type]);
-    // Simulate code generation update when a block is dropped.
-    setCode(prevCode => prevCode + `\n// Added block: ${item.type}`);
+    setCode((prev) => prev + `\n// Added block: ${item.type}`);
   };
 
   const handleCodeChange = (newCode) => {
@@ -23,15 +24,21 @@ const EABuilder = () => {
   };
 
   return (
-    <div className="ea-builder">
+    <div className="ea-builder" style={{ padding: '20px' }}>
       <OnboardingTour />
-      {/* Wrap the part that uses drag-and-drop in a DndProvider */}
       <DndProvider backend={HTML5Backend}>
-        <div style={{ display: 'flex' }}>
-          <Sidebar />
-          <main style={{ flex: 1, padding: '20px' }}>
-            <h2>EA Builder Canvas</h2>
-            <DropArea onDrop={handleDrop} />
+        <div style={{ display: 'flex', flexWrap: 'wrap' }}>
+          {/* Left Panel: Indicator List */}
+          <div style={{ flexBasis: '20%', border: '1px solid #ccc', minHeight: '400px', padding: '10px' }}>
+            <Sidebar />
+          </div>
+
+          {/* Center Panel: Visual EA Builder */}
+          <div style={{ flexBasis: '55%', border: '1px solid #ccc', margin: '0 10px', minHeight: '400px', padding: '10px' }}>
+            <h2>EA Builder</h2>
+            <div style={{ marginBottom: '10px' }}>
+              <DropArea onDrop={handleDrop} />
+            </div>
             <div>
               <h4>Dropped Blocks:</h4>
               <ul>
@@ -40,11 +47,19 @@ const EABuilder = () => {
                 ))}
               </ul>
             </div>
-            {/* Code Editor Integration */}
+          </div>
+
+          {/* Right Panel: Configuration & Risk Management */}
+          <div style={{ flexBasis: '20%', border: '1px solid #ccc', minHeight: '400px', padding: '10px' }}>
+            <PropertiesPanel />
+            <RiskManagementSettings settings={riskSettings} onChange={setRiskSettings} />
+          </div>
+
+          {/* Full-Width Row: Code Editor */}
+          <div style={{ flexBasis: '100%', marginTop: '20px', border: '1px solid #ccc', padding: '10px' }}>
             <h3>EA Code Editor</h3>
             <CodeEditor code={code} onChange={handleCodeChange} />
-          </main>
-          <PropertiesPanel />
+          </div>
         </div>
       </DndProvider>
     </div>
