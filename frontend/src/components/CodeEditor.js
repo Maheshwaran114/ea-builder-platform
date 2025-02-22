@@ -6,12 +6,13 @@ const CodeEditor = ({ code, onChange }) => {
   return (
     <div style={{ height: '500px', border: '1px solid #ddd', marginTop: '20px' }}>
       <Editor
-        height="100%"
-        defaultLanguage="javascript" // You can change this to a custom language if available
-        defaultValue={code}
-        theme="vs-dark"              // or "light" theme as per your design
-        onChange={onChange}
-      />
+            height="100%"
+            defaultLanguage="javascript"
+            value={code}
+            theme="vs-dark"
+            onChange={onChange}
+        />
+
     </div>
   );
 };

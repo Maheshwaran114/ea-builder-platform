@@ -437,7 +437,7 @@ app.post('/api/backtest', async (req, res) => {
  * @swagger
  * /api/eacode:
  *   post:
- *     summary: Generate EA code with risk management options based on provided configuration
+ *     summary: Generate advanced EA code based on provided configuration including multiple indicators and risk management settings.
  *     tags: [EA Code Generation]
  *     requestBody:
  *       required: true
@@ -450,24 +450,35 @@ app.post('/api/backtest', async (req, res) => {
  *             properties:
  *               configuration:
  *                 type: object
- *                 description: Contains indicator selections, parameters, and risk management settings.
+ *                 description: Contains an array of indicators, risk management settings, and conditions.
  *                 properties:
- *                   indicator:
- *                     type: string
- *                   parameter:
- *                     type: number
- *                   stopLoss:
- *                     type: number
- *                     description: Adaptive stop loss value.
- *                   trailingStop:
- *                     type: number
- *                     description: Trailing stop value.
- *                   commission:
- *                     type: number
- *                     default: 0.1
+ *                   indicators:
+ *                     type: array
+ *                     items:
+ *                       type: object
+ *                       required:
+ *                         - name
+ *                         - parameter
+ *                       properties:
+ *                         name:
+ *                           type: string
+ *                         parameter:
+ *                           type: number
+ *                   riskSettings:
+ *                     type: object
+ *                     properties:
+ *                       stopLoss:
+ *                         type: number
+ *                       trailingStop:
+ *                         type: number
+ *                   conditions:
+ *                     type: array
+ *                     items:
+ *                       type: string
+ *                     description: Array of conditions for trading logic.
  *     responses:
  *       200:
- *         description: Generated EA code successfully
+ *         description: Generated EA code successfully.
  *         content:
  *           application/json:
  *             schema:
@@ -476,33 +487,44 @@ app.post('/api/backtest', async (req, res) => {
  *                 code:
  *                   type: string
  *       400:
- *         description: Invalid or missing configuration
+ *         description: Invalid or missing configuration.
  *       500:
- *         description: EA code generation failed
+ *         description: EA code generation failed.
  */
 app.post('/api/eacode', async (req, res) => {
   const { configuration } = req.body;
-  if (!configuration || typeof configuration !== 'object') {
-    return res.status(400).json({ error: 'Invalid or missing configuration' });
+  if (!configuration || typeof configuration !== 'object' || !configuration.indicators) {
+    return res.status(400).json({ error: 'Invalid or missing configuration or indicators array' });
   }
   try {
-    const { indicator, parameter, stopLoss, trailingStop, commission = 0.1 } = configuration;
-    const generatedCode = `
-      // EA Generated Code with Advanced Risk Management
-      // Indicator: ${indicator}, Parameter: ${parameter}
-      // Risk Settings -> Stop Loss: ${stopLoss}, Trailing Stop: ${trailingStop}, Commission: ${commission}
-      
-      void OnInit() {
-        // Initialize indicators, risk management parameters, and other settings...
-      }
-      
-      void OnTick() {
-        // Evaluate trading conditions and apply risk management logic.
-        if (/* condition based on risk parameters */) {
-          // Implement adaptive stop loss or trailing stop logic.
-        }
-      }
-    `;
+    const { indicators, riskSettings, conditions } = configuration;
+    let codeLines = [];
+    codeLines.push("// EA Generated Code with Advanced Features");
+    indicators.forEach((ind, index) => {
+      codeLines.push(`// Indicator ${index + 1}: ${ind.name} with parameter: ${ind.parameter}`);
+    });
+    if (riskSettings) {
+      const { stopLoss, trailingStop } = riskSettings;
+      codeLines.push(`// Risk Settings: Stop Loss: ${stopLoss}, Trailing Stop: ${trailingStop}`);
+    }
+    if (conditions && conditions.length > 0) {
+      codeLines.push("// Conditional Logic:");
+      conditions.forEach((cond, index) => {
+        codeLines.push(`// Condition ${index + 1}: ${cond}`);
+      });
+    }
+    codeLines.push(`void OnInit() {`);
+    codeLines.push(`   // Initialize indicators and risk management settings`);
+    codeLines.push(`}`);
+    codeLines.push(`void OnTick() {`);
+    codeLines.push(`   // Evaluate trading conditions`);
+    codeLines.push(`   if (/* condition based on indicators */) {`);
+    codeLines.push(`      // Execute trade logic`);
+    codeLines.push(`   } else {`);
+    codeLines.push(`      // Alternative trading logic`);
+    codeLines.push(`   }`);
+    codeLines.push(`}`);
+    const generatedCode = codeLines.join("\n");
     res.json({ code: generatedCode });
   } catch (err) {
     console.error('EA code generation error:', err);
