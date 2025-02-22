@@ -11,6 +11,7 @@ import SubscriptionStatus from './pages/SubscriptionStatus';
 import PremiumUpgrade from './pages/PremiumUpgrade';
 import AdminDashboard from './pages/AdminDashboard';
 import './App.css';
+import PaymentPage from './pages/PaymentPage';
 
 function App() {
   return (
@@ -26,7 +27,8 @@ function App() {
             <Link to="/backtest">Run Backtest</Link> |{' '}
             <Link to="/subscription-status">Subscription Status</Link> |{' '}
             <Link to="/premium-upgrade">Premium Upgrade</Link> |{' '}
-            <Link to="/admin/dashboard">Admin Dashboard</Link>
+            <Link to="/admin/dashboard">Admin Dashboard</Link> |{' '}
+            <Link to="/payment">Payment</Link>
           </nav>
         </header>
         <Routes>
@@ -39,6 +41,7 @@ function App() {
           <Route path="/subscription-status" element={<SubscriptionStatus />} />
           <Route path="/premium-upgrade" element={<PremiumUpgrade />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/payment" element={<PaymentPage />} />
         </Routes>
         <footer className="footer">
           <p>© 2025 EA Builder Platform</p>
@@ -47,5 +50,11 @@ function App() {
     </Router>
   );
 }
+
+
+
+// In the <Routes> section, add:
+<Route path="/payment" element={<PaymentPage />} />
+
 
 export default App;

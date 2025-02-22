@@ -1023,6 +1023,85 @@ app.post('/api/eamodels/:id/rollback', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/payments/create:
+ *   post:
+ *     summary: Create a new payment order for premium subscription and store payer details
+ *     tags: [Payments]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - userId
+ *               - amount
+ *             properties:
+ *               userId:
+ *                 type: integer
+ *               amount:
+ *                 type: number
+ *                 description: Payment amount.
+ *     responses:
+ *       200:
+ *         description: Payment order created and stored successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 order:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: number
+ *                     user_id:
+ *                       type: number
+ *                     order_id:
+ *                       type: string
+ *                     amount:
+ *                       type: number
+ *                     status:
+ *                       type: string
+ *                     created_at:
+ *                       type: string
+ *                       format: date-time
+ *                 paymentUrl:
+ *                   type: string
+ *       400:
+ *         description: Invalid input.
+ *       500:
+ *         description: Payment order creation failed.
+ */
+app.post('/api/payments/create', async (req, res) => {
+  const { userId, amount } = req.body;
+  if (!userId || isNaN(userId) || !amount || isNaN(amount)) {
+    return res.status(400).json({ error: 'Invalid or missing userId or amount' });
+  }
+  try {
+    // Generate a random order ID using slice (instead of deprecated substr)
+    const orderId = 'order_' + Math.random().toString(36).slice(2, 11);
+    // Simulate a payment URL (to be integrated with an actual payment gateway later)
+    const paymentUrl = `https://payment-gateway.example.com/pay/${orderId}`;
+    
+    // Insert the payment order details into the database
+    const insertQuery = `
+      INSERT INTO payment_orders (user_id, order_id, amount, status)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *
+    `;
+    const result = await pool.query(insertQuery, [userId, orderId, amount, 'pending']);
+    
+    res.json({ order: result.rows[0], paymentUrl });
+  } catch (err) {
+    console.error('Payment order creation error:', err);
+    res.status(500).json({ error: 'Payment order creation failed', details: err.message });
+  }
+});
+
+
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
