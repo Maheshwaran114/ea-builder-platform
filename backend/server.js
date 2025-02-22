@@ -843,6 +843,185 @@ app.post('/api/eamodels/rank', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/eamodels/{id}/version:
+ *   post:
+ *     summary: Save a new version of an EA model
+ *     tags: [Version Control]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The EA model ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - code
+ *             properties:
+ *               code:
+ *                 type: string
+ *                 description: The current EA code to be saved as a version.
+ *     responses:
+ *       201:
+ *         description: Version saved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 version:
+ *                   type: object
+ *       400:
+ *         description: Invalid input.
+ *       500:
+ *         description: Failed to save version.
+ */
+app.post('/api/eamodels/:id/version', async (req, res) => {
+  const { id } = req.params;
+  const { code } = req.body;
+  if (!code || typeof code !== 'string') {
+    return res.status(400).json({ error: 'Invalid or missing code for versioning.' });
+  }
+  try {
+    const result = await pool.query(
+      'INSERT INTO ea_model_versions (ea_model_id, code, version_date) VALUES ($1, $2, CURRENT_TIMESTAMP) RETURNING *',
+      [id, code]
+    );
+    res.status(201).json({ message: 'Version saved successfully.', version: result.rows[0] });
+  } catch (err) {
+    console.error('Error saving EA model version:', err);
+    res.status(500).json({ error: 'Failed to save version', details: err.message });
+  }
+});
+
+
+/**
+ * @swagger
+ * /api/eamodels/{id}/versions:
+ *   get:
+ *     summary: Retrieve the version history for an EA model
+ *     tags: [Version Control]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The EA model ID.
+ *     responses:
+ *       200:
+ *         description: Version history retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                   code:
+ *                     type: string
+ *                   version_date:
+ *                     type: string
+ *                     format: date-time
+ *       400:
+ *         description: Invalid input.
+ *       500:
+ *         description: Failed to retrieve versions.
+ */
+app.get('/api/eamodels/:id/versions', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      'SELECT id, code, version_date FROM ea_model_versions WHERE ea_model_id = $1 ORDER BY version_date DESC',
+      [id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error retrieving EA model versions:', err);
+    res.status(500).json({ error: 'Failed to retrieve versions', details: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/eamodels/{id}/rollback:
+ *   post:
+ *     summary: Roll back an EA model to a previous version
+ *     tags: [Version Control]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The EA model ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - versionId
+ *             properties:
+ *               versionId:
+ *                 type: integer
+ *                 description: The version ID to roll back to.
+ *     responses:
+ *       200:
+ *         description: EA model rolled back successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 ea_model:
+ *                   type: object
+ *       400:
+ *         description: Invalid input.
+ *       404:
+ *         description: Version not found.
+ *       500:
+ *         description: Rollback failed.
+ */
+app.post('/api/eamodels/:id/rollback', async (req, res) => {
+  const { id } = req.params;
+  const { versionId } = req.body;
+  if (!versionId || isNaN(versionId)) {
+    return res.status(400).json({ error: 'Invalid or missing versionId.' });
+  }
+  try {
+    const versionResult = await pool.query(
+      'SELECT code FROM ea_model_versions WHERE id = $1 AND ea_model_id = $2',
+      [versionId, id]
+    );
+    if (versionResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Version not found for this EA model.' });
+    }
+    const code = versionResult.rows[0].code;
+    const updateResult = await pool.query(
+      'UPDATE ea_models SET code = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *',
+      [code, id]
+    );
+    res.json({ message: 'EA model rolled back successfully.', ea_model: updateResult.rows[0] });
+  } catch (err) {
+    console.error('Rollback error:', err);
+    res.status(500).json({ error: 'Rollback failed', details: err.message });
+  }
+});
 
 
 app.listen(PORT, () => {
