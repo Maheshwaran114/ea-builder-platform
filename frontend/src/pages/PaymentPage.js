@@ -41,7 +41,7 @@ const PaymentPage = () => {
       {orderDetails && (
         <div>
           <h4>Order Details</h4>
-          <p>Order ID: {orderDetails.order_id}</p>
+          <p>Order ID: {orderDetails.order.order_id}</p>
           <p>
             Payment URL: <a href={orderDetails.paymentUrl} target="_blank" rel="noreferrer">Pay Now</a>
           </p>

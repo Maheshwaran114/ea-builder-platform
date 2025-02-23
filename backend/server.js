@@ -14,6 +14,9 @@ const swaggerJsdoc = require('swagger-jsdoc');
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+const NodeCache = require('node-cache');
+const cache = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
+
 // Swagger configuration
 const swaggerOptions = {
   definition: {
@@ -223,6 +226,9 @@ app.post('/api/eamodels', async (req, res) => {
   }
 });
 
+
+
+// Existing endpoint updated to use node-cache
 /**
  * @swagger
  * /api/eamodels/{userId}:
@@ -239,6 +245,27 @@ app.post('/api/eamodels', async (req, res) => {
  *     responses:
  *       200:
  *         description: A list of EA models
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                   user_id:
+ *                     type: integer
+ *                   name:
+ *                     type: string
+ *                   configuration:
+ *                     type: object
+ *                   created_at:
+ *                     type: string
+ *                     format: date-time
+ *                   updated_at:
+ *                     type: string
+ *                     format: date-time
  *       400:
  *         description: Invalid userId parameter
  *       500:
@@ -249,17 +276,21 @@ app.get('/api/eamodels/:userId', async (req, res) => {
   if (!userId || isNaN(userId)) {
     return res.status(400).json({ error: 'Invalid userId parameter' });
   }
+  const cacheKey = `ea_models_${userId}`;
   try {
-    const result = await pool.query(
-      'SELECT * FROM ea_models WHERE user_id = $1',
-      [userId]
-    );
+    const cachedData = cache.get(cacheKey);
+    if (cachedData) {
+      return res.json(cachedData);
+    }
+    const result = await pool.query('SELECT * FROM ea_models WHERE user_id = $1', [userId]);
+    cache.set(cacheKey, result.rows);
     res.json(result.rows);
   } catch (err) {
-    console.error('Fetching EA models error:', err);
-    res.status(500).json({ error: 'Fetching EA models failed', details: err.message });
+    console.error('Error fetching EA models:', err);
+    res.status(500).json({ error: 'Failed to fetch EA models' });
   }
 });
+
 
 /**
  * @swagger
@@ -1100,6 +1131,19 @@ app.post('/api/payments/create', async (req, res) => {
     res.status(500).json({ error: 'Payment order creation failed', details: err.message });
   }
 });
+
+
+
+
+// Setup rate limiting for API endpoints
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again after 15 minutes'
+});
+app.use('/api/', apiLimiter);
+
+
 
 
 
