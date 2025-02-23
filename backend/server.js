@@ -1415,6 +1415,62 @@ app.get('/api/analytics', async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/admin/analytics:
+ *   get:
+ *     summary: Get detailed analytics for EA models (admin only)
+ *     tags: [Analytics]
+ *     responses:
+ *       200:
+ *         description: Detailed analytics data retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalModels:
+ *                   type: integer
+ *                 avgProfit:
+ *                   type: number
+ *                 avgDrawdown:
+ *                   type: number
+ *                 avgWinRatio:
+ *                   type: number
+ *                 totalPurchases:
+ *                   type: integer
+ *       500:
+ *         description: Failed to retrieve analytics.
+ */
+app.get('/api/admin/analytics', async (req, res) => {
+  try {
+    const modelsResult = await pool.query(`
+      SELECT
+        COUNT(*)::int AS totalModels,
+        COALESCE(AVG((backtest_results->>'profit')::numeric), 0) AS avgProfit,
+        COALESCE(AVG((backtest_results->>'drawdown')::numeric), 0) AS avgDrawdown,
+        COALESCE(AVG((backtest_results->>'winRatio')::numeric), 0) AS avgWinRatio
+      FROM ea_models
+      WHERE backtest_results IS NOT NULL
+    `);
+    const purchasesResult = await pool.query(`
+      SELECT COUNT(*)::int AS totalPurchases
+      FROM payment_orders
+      WHERE status = 'completed'
+    `);
+    res.json({
+      totalModels: modelsResult.rows[0].totalModels,
+      avgProfit: modelsResult.rows[0].avgProfit,
+      avgDrawdown: modelsResult.rows[0].avgDrawdown,
+      avgWinRatio: modelsResult.rows[0].avgWinRatio,
+      totalPurchases: purchasesResult.rows[0].totalPurchases,
+    });
+  } catch (err) {
+    console.error('Error fetching admin analytics:', err);
+    res.status(500).json({ error: 'Failed to retrieve analytics', details: err.message });
+  }
+});
+
 
 
 
