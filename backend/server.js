@@ -16,6 +16,8 @@ const PORT = process.env.PORT || 3001;
 
 const NodeCache = require('node-cache');
 const cache = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
+const rateLimit = require('express-rate-limit');
+
 
 // Swagger configuration
 const swaggerOptions = {
@@ -1142,6 +1144,277 @@ const apiLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again after 15 minutes'
 });
 app.use('/api/', apiLimiter);
+
+
+/**
+ * @swagger
+ * /api/eamodels/{id}/share:
+ *   post:
+ *     summary: Submit an EA model for marketplace sharing
+ *     tags: [Marketplace]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The EA model ID.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - price
+ *             properties:
+ *               price:
+ *                 type: number
+ *                 description: The sale price for the EA model.
+ *     responses:
+ *       200:
+ *         description: EA model submitted for sharing.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 ea_model:
+ *                   type: object
+ *       400:
+ *         description: Invalid input.
+ *       500:
+ *         description: Submission failed.
+ */
+app.post('/api/eamodels/:id/share', async (req, res) => {
+  const { id } = req.params;
+  const { price } = req.body;
+  if (!price || isNaN(price)) {
+    return res.status(400).json({ error: 'Invalid or missing price' });
+  }
+  try {
+    const result = await pool.query(
+      'UPDATE ea_models SET approval_status = $1, price = $2 WHERE id = $3 RETURNING *',
+      ['pending', price, id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'EA model not found' });
+    }
+    res.json({ message: 'EA model submitted for sharing. Pending approval.', ea_model: result.rows[0] });
+  } catch (err) {
+    console.error('Error submitting EA model for sharing:', err);
+    res.status(500).json({ error: 'Submission failed', details: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/eamodels/{id}/approve:
+ *   post:
+ *     summary: Approve an EA model for marketplace sharing (admin only)
+ *     tags: [Marketplace]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: The EA model ID.
+ *     responses:
+ *       200:
+ *         description: EA model approved for sharing.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 ea_model:
+ *                   type: object
+ *       404:
+ *         description: EA model not found.
+ *       500:
+ *         description: Approval failed.
+ */
+app.post('/api/eamodels/:id/approve', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const result = await pool.query(
+      'UPDATE ea_models SET approval_status = $1 WHERE id = $2 RETURNING *',
+      ['approved', id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'EA model not found' });
+    }
+    res.json({ message: 'EA model approved for sharing.', ea_model: result.rows[0] });
+  } catch (err) {
+    console.error('Error approving EA model:', err);
+    res.status(500).json({ error: 'Approval failed', details: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/marketplace:
+ *   get:
+ *     summary: Get all approved EA models available in the marketplace
+ *     tags: [Marketplace]
+ *     responses:
+ *       200:
+ *         description: A list of approved EA models.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: integer
+ *                   user_id:
+ *                     type: integer
+ *                   name:
+ *                     type: string
+ *                   price:
+ *                     type: number
+ *                   approval_status:
+ *                     type: string
+ *                   configuration:
+ *                     type: object
+ *                   created_at:
+ *                     type: string
+ *                     format: date-time
+ *                   updated_at:
+ *                     type: string
+ *                     format: date-time
+ *       500:
+ *         description: Failed to retrieve marketplace EA models.
+ */
+app.get('/api/marketplace', async (req, res) => {
+  try {
+    const result = await pool.query(
+      "SELECT * FROM ea_models WHERE approval_status = 'approved' AND price > 0"
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('Error fetching marketplace EA models:', err);
+    res.status(500).json({ error: 'Failed to retrieve marketplace EA models', details: err.message });
+  }
+});
+
+/**
+ * @swagger
+ * /api/marketplace/purchase:
+ *   post:
+ *     summary: Purchase an EA model from the marketplace
+ *     tags: [Marketplace]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - ea_model_id
+ *               - buyer_id
+ *             properties:
+ *               ea_model_id:
+ *                 type: integer
+ *               buyer_id:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Purchase successful and revenue share processed.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                 purchase:
+ *                   type: object
+ *       400:
+ *         description: Invalid input.
+ *       500:
+ *         description: Purchase failed.
+ */
+app.post('/api/marketplace/purchase', async (req, res) => {
+  const { ea_model_id, buyer_id } = req.body;
+  if (!ea_model_id || isNaN(ea_model_id) || !buyer_id || isNaN(buyer_id)) {
+    return res.status(400).json({ error: 'Invalid or missing ea_model_id or buyer_id' });
+  }
+  try {
+    // Retrieve the EA model details
+    const modelResult = await pool.query('SELECT user_id, price FROM ea_models WHERE id = $1 AND approval_status = $2', [ea_model_id, 'approved']);
+    if (modelResult.rows.length === 0) {
+      return res.status(404).json({ error: 'EA model not found or not approved for sale' });
+    }
+    const eaModel = modelResult.rows[0];
+    const salePrice = parseFloat(eaModel.price);
+    const commissionRate = 0.20; // 20% commission
+    const commissionAmount = salePrice * commissionRate;
+    const developerShare = salePrice - commissionAmount;
+    // Simulate purchase processing; record purchase in payment_orders table
+    const purchaseResult = await pool.query(
+      `INSERT INTO payment_orders (user_id, order_id, amount, status)
+       VALUES ($1, $2, $3, $4) RETURNING *`,
+      [buyer_id, 'purchase_' + Math.random().toString(36).slice(2, 11), salePrice, 'completed']
+    );
+    res.json({ 
+      message: `Purchase successful. Commission: ${commissionAmount.toFixed(2)}, Developer Share: ${developerShare.toFixed(2)}.`,
+      purchase: purchaseResult.rows[0]
+    });
+  } catch (err) {
+    console.error('Purchase error:', err);
+    res.status(500).json({ error: 'Purchase failed', details: err.message });
+  }
+});
+
+
+/**
+ * @swagger
+ * /api/analytics:
+ *   get:
+ *     summary: Get analytics summary for EA models.
+ *     tags: [Analytics]
+ *     responses:
+ *       200:
+ *         description: Analytics data retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 totalModels:
+ *                   type: integer
+ *                 avgProfit:
+ *                   type: number
+ *                 avgDrawdown:
+ *                   type: number
+ *       500:
+ *         description: Failed to retrieve analytics.
+ */
+app.get('/api/analytics', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        COUNT(*)::int AS "totalModels",
+        COALESCE(AVG((backtest_results->>'profit')::numeric), 0) AS "avgProfit",
+        COALESCE(AVG((backtest_results->>'drawdown')::numeric), 0) AS "avgDrawdown"
+      FROM ea_models
+      WHERE backtest_results IS NOT NULL;
+    `);
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('Error fetching analytics:', err);
+    res.status(500).json({ error: 'Failed to retrieve analytics', details: err.message });
+  }
+});
+
 
 
 
