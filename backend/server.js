@@ -18,6 +18,19 @@ const NodeCache = require('node-cache');
 const cache = new NodeCache({ stdTTL: 3600, checkperiod: 120 });
 const rateLimit = require('express-rate-limit');
 
+// Security packages
+const helmet = require('helmet');
+const xssClean = require('xss-clean');
+
+
+// Use Helmet for security headers
+app.use(helmet());
+// Sanitize user input coming from POST body, GET queries, and url params
+app.use(xssClean());
+
+app.use(cors());
+app.use(bodyParser.json());
+
 
 // Swagger configuration
 const swaggerOptions = {
@@ -1458,6 +1471,10 @@ app.get('/api/admin/analytics', async (req, res) => {
       FROM payment_orders
       WHERE status = 'completed'
     `);
+    
+    // Add this log here:
+    console.log('Admin analytics data:', modelsResult.rows[0], purchasesResult.rows[0]);
+    
     res.json({
       totalModels: modelsResult.rows[0].totalModels,
       avgProfit: modelsResult.rows[0].avgProfit,
@@ -1470,6 +1487,7 @@ app.get('/api/admin/analytics', async (req, res) => {
     res.status(500).json({ error: 'Failed to retrieve analytics', details: err.message });
   }
 });
+
 
 
 
